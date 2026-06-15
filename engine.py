@@ -35,6 +35,10 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".heic", ".gif", ".webp", ".tiff", ".bmp"
 DEFAULT_MODEL = "claude-opus-4-8"
 CONSOLIDATE_MODEL = "claude-opus-4-8"
 
+# 버전/배포 — 릴리스(.app) 자동 업데이트 비교용
+VERSION = "0.1.1"
+REPO_SLUG = "sj48695-labs/shotsort"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DB
@@ -671,29 +675,78 @@ def _git(*args: str) -> tuple[int, str]:
 @dataclass
 class UpdateStatus:
     available: bool = False
-    behind: int = 0          # 원격이 로컬보다 앞선 커밋 수
+    mode: str = "none"        # "git" | "release" | "none"
+    behind: int = 0           # git 모드: 원격이 로컬보다 앞선 커밋 수
+    latest: str | None = None  # release 모드: 최신 버전(tag)
+    url: str | None = None     # release 모드: 다운로드 페이지
     error: str | None = None
 
 
+def _ver_tuple(s: str) -> tuple:
+    out = []
+    for p in (s or "").split("."):
+        n = "".join(c for c in p if c.isdigit())
+        out.append(int(n) if n else 0)
+    return tuple(out) or (0,)
+
+
 def check_update(fetch: bool = True) -> UpdateStatus:
-    """원격(upstream)과 비교해 업데이트 가능 여부 확인. git 저장소가 아니면 error."""
-    if _git("rev-parse", "--is-inside-work-tree")[0] != 0:
-        return UpdateStatus(error="git 저장소가 아님")
+    """업데이트 확인. git 저장소면 원격 커밋 비교, 아니면(.app 번들) GitHub 릴리스 비교."""
+    if _git("rev-parse", "--is-inside-work-tree")[0] == 0:
+        return _check_update_git(fetch)
+    return _check_update_release()
+
+
+def _check_update_git(fetch: bool) -> UpdateStatus:
     if fetch:
         code, out = _git("fetch", "--quiet")
         if code != 0:
-            return UpdateStatus(error=f"fetch 실패: {out[:200]}")
+            return UpdateStatus(mode="git", error=f"fetch 실패: {out[:200]}")
     code, up = _git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
     if code != 0:
-        return UpdateStatus(error="upstream(원격 추적 브랜치) 없음")
+        return UpdateStatus(mode="git", error="upstream(원격 추적 브랜치) 없음")
     code, out = _git("rev-list", "--count", f"HEAD..{up}")
     if code != 0:
-        return UpdateStatus(error=out[:200])
+        return UpdateStatus(mode="git", error=out[:200])
     behind = int(out or "0")
-    return UpdateStatus(available=behind > 0, behind=behind)
+    return UpdateStatus(available=behind > 0, mode="git", behind=behind)
+
+
+def _check_update_release() -> UpdateStatus:
+    """GitHub 최신 릴리스 tag 와 VERSION 비교(.app 번들용). 공개 API라 인증 불필요."""
+    import json
+    import ssl
+    import urllib.request
+
+    try:  # 시스템 CA 미설정 대비 certifi 번들 사용
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ctx = ssl.create_default_context()
+
+    url = f"https://api.github.com/repos/{REPO_SLUG}/releases/latest"
+    try:
+        req = urllib.request.Request(
+            url, headers={"Accept": "application/vnd.github+json", "User-Agent": "shotsort"}
+        )
+        with urllib.request.urlopen(req, timeout=8, context=ctx) as r:
+            data = json.load(r)
+    except Exception as e:
+        return UpdateStatus(mode="release", error=str(e)[:200])
+    tag = (data.get("tag_name") or "").lstrip("v")
+    if not tag:
+        return UpdateStatus(mode="release", error="릴리스를 찾을 수 없음")
+    newer = _ver_tuple(tag) > _ver_tuple(VERSION)
+    return UpdateStatus(
+        available=newer, mode="release", latest=tag,
+        url=data.get("html_url") or f"https://github.com/{REPO_SLUG}/releases/latest",
+    )
 
 
 def apply_update() -> tuple[bool, str]:
-    """fast-forward pull 로 최신 코드를 받는다. 적용 후 재시작 필요."""
+    """git 모드: fast-forward pull 로 최신 코드를 받는다. 적용 후 재시작 필요.
+
+    release(.app) 모드는 자체 교체 대신 다운로드 페이지(UpdateStatus.url)를 연다 — app.py 참고.
+    """
     code, out = _git("pull", "--ff-only")
     return code == 0, out[:300]

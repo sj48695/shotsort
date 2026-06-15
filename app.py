@@ -231,16 +231,31 @@ def index():
         elif prog_lbl.text:
             prog_lbl.text = ""
 
+    upd = {"status": None}
+
     async def check_for_update():
         st = await run.io_bound(engine.check_update)
-        if st.available:
+        upd["status"] = st
+        if not st.available:
+            return
+        if st.mode == "release":  # .app 번들 → 다운로드 페이지로 안내
+            update_lbl.text = f"새 버전 {st.latest} 이 있습니다. '다운로드'로 릴리스 페이지를 엽니다."
+            update_btn.text = "다운로드"
+        else:                      # git 설치 → pull + 재시작
             update_lbl.text = (
                 f"새 버전이 있습니다 — {st.behind}개 커밋 뒤처짐. "
                 "'업데이트'를 누르면 받아서 자동 재시작합니다."
             )
-            update_banner.set_visibility(True)
+            update_btn.text = "업데이트"
+        update_banner.set_visibility(True)
 
     async def do_update():
+        st = upd["status"]
+        if st and st.mode == "release":  # 번들: 자체 교체 대신 다운로드 페이지 열기
+            import webbrowser
+            webbrowser.open(st.url or f"https://github.com/{engine.REPO_SLUG}/releases/latest")
+            update_banner.set_visibility(False)
+            return
         update_btn.props("loading")
         update_btn.disable()
         ok, msg = await run.io_bound(engine.apply_update)
