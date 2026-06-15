@@ -4,6 +4,33 @@
 
 기존 도구(czkawka·fclones 등)는 "중복/유사 이미지"는 잘 찾지만 "스크린샷 내용을 읽고 프로젝트별로 묶기"는 못 해서 직접 만든 도구입니다.
 
+## 🚀 빠른 시작 (처음 사용)
+
+**필요한 것**: macOS, `python3`, `git`. (없으면 `brew install python git`)
+
+터미널(Terminal.app)에서 아래 두 줄이면 끝입니다 — 최초 실행 시 의존성은 자동 설치됩니다.
+
+```bash
+git clone https://github.com/sj48695/shotsort.git
+cd shotsort && ./run.sh
+```
+
+데스크탑 앱 창이 뜨면:
+1. **스캔** 버튼 (기본 경로 `~/Desktop`) → 스크린샷이 그룹별로 묶입니다
+2. 지울 것들을 체크 → **선택 항목 휴지통으로** (복구 가능)
+
+> API 키 없이도 동작합니다(무료 로컬 모드). `export ANTHROPIC_API_KEY=sk-...` 후 실행하면
+> Claude 가 더 정확하게 프로젝트별로 묶어줍니다. 새 버전이 나오면 앱이 알려주고 한 번에 업데이트됩니다.
+
+다른 실행 방법:
+```bash
+./run.sh --browser          # 앱을 브라우저로
+./run.sh cli scan ~/Desktop # CLI 로
+./run.sh cli groups
+```
+
+---
+
 CLI 와 데스크탑 앱(GUI) 두 가지로 쓸 수 있습니다. 둘 다 같은 엔진(`engine.py`)을 공유합니다.
 
 ```
@@ -21,12 +48,15 @@ shotsort.py  # 하위호환 shim (== cli.py)
 
 분석 결과는 `~/.shotsort/cache.db` (SQLite)에 캐시 → 한 번 본 이미지는 재분석 안 함(파일 해시 기준).
 
-## 설치
+## 수동 설치 (대안)
+
+`run.sh` 대신 직접 venv 를 관리하고 싶다면:
 
 ```bash
 cd shotsort
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-...
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python3 app.py          # 앱
+.venv/bin/python3 cli.py stats    # CLI
 ```
 
 > `pyobjc-framework-Vision` 설치가 안 되면 OCR 은 tesseract(`brew install tesseract tesseract-lang`)로 폴백하고, 그것도 없으면 OCR 없이 진행합니다(`--with-image` 권장).
