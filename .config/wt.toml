@@ -1,0 +1,5 @@
+# Worktrunk 프로젝트 설정 (devloop-init 생성)
+
+[post-create]
+# .worktreeinclude 에 명시된 gitignore 파일 복사 (.devloop 등)
+copy-ignored = "wt step copy-ignored"

@@ -1,0 +1,22 @@
+# shotsort — DevLoop 설정 (devloop-init v0.1 생성)
+
+PLATFORM=github
+
+AI_PROVIDER=claude
+
+MODEL_PM=opus
+MODEL_IMPL=sonnet
+
+TOKEN_BUDGET=0
+TOKEN_WINDOW_MINUTES=300
+
+COMMIT_FORMAT=feat: #{iid} {title}
+
+# 라벨 매핑 (프로젝트 라벨에 맞게 오버라이드)
+LABEL_ERROR=error
+LABEL_URGENT=urgent
+LABEL_BUG=bug
+LABEL_TASK=task
+LABEL_PHASE=phase
+
+# 추가 설정은 템플릿 참고: /Users/sujeong/personal/github/sj48695-labs/devloop-hub/scripts/devloop.example
